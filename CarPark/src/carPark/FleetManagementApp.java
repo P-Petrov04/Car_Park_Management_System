@@ -16,10 +16,14 @@ public class FleetManagementApp extends JFrame {
         conn = DBConnection.getConnection();
         
         JTabbedPane tabbedPane = new JTabbedPane();
-        tabbedPane.add("Автомобили", new CarsPanel(conn));
-        tabbedPane.add("Собственици", new OwnersPanel(conn));
-        //tabbedPane.add("Ремонти", new RepairsPanel(conn));
-        //tabbedPane.add("Справки", new ReportsPanel(conn));
+        RepairsPanel repairsPanel = new RepairsPanel(conn);
+        ReportsPanel reportsPanel = new ReportsPanel(conn);
+        CarsPanel carsPanel = new CarsPanel (conn, repairsPanel, reportsPanel);
+        OwnersPanel ownersPanel = new OwnersPanel(conn, reportsPanel, carsPanel);
+        tabbedPane.add("Ремонти", repairsPanel);
+        tabbedPane.add("Автомобили", carsPanel);
+        tabbedPane.add("Собственици", ownersPanel);
+        tabbedPane.add("Справки", reportsPanel);
         
         add(tabbedPane);
     }

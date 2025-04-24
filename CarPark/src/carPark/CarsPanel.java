@@ -4,53 +4,79 @@ import javax.swing.*;
 import java.awt.*;
 import java.sql.*;
 import java.awt.event.ActionEvent;
+import java.time.Year;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class CarsPanel extends JPanel {
+    private RepairsPanel repairsPanel;
+    private ReportsPanel reportsPanel;
     private final Connection conn;
     private JTable table;
     private JTextField regNumberField, brandField, modelField, yearField;
     private JComboBox<String> ownerCombo;
     private int selectedCarId = -1;
-    
-    public CarsPanel(Connection conn) {
+    private Set<String> existingRegNumbers = new HashSet<>();
+    private Map<String, Integer> ownerNameToIdMap = new HashMap<>();
+
+    public CarsPanel(Connection conn, RepairsPanel repairsPanel, ReportsPanel reportsPanel) {
         this.conn = conn;
+        this.repairsPanel = repairsPanel;
+        this.reportsPanel = reportsPanel;
         setLayout(new BorderLayout());
         initUI();
         refreshTable();
         refreshOwnersCombo();
+        loadExistingRegNumbers();
     }
-    
+
     private void initUI() {
         // Форма за въвеждане
         JPanel formPanel = new JPanel(new GridLayout(5, 2, 5, 5));
-        
-        formPanel.add(new JLabel("Регистрационен номер:"));
+
+        formPanel.add(new JLabel("Регистрационен номер*:"));
         regNumberField = new JTextField();
         formPanel.add(regNumberField);
-        
-        formPanel.add(new JLabel("Марка:"));
+
+        formPanel.add(new JLabel("Марка*:"));
         brandField = new JTextField();
         formPanel.add(brandField);
-        
-        formPanel.add(new JLabel("Модел:"));
+
+        formPanel.add(new JLabel("Модел*:"));
         modelField = new JTextField();
         formPanel.add(modelField);
-        
-        formPanel.add(new JLabel("Година:"));
+
+        formPanel.add(new JLabel("Година*:"));
         yearField = new JTextField();
+        yearField.setInputVerifier(new InputVerifier() {
+            @Override
+            public boolean verify(JComponent input) {
+                String text = ((JTextField) input).getText();
+                if (text.isEmpty()) return true; // ще се валидира при submit
+                try {
+                    int year = Integer.parseInt(text);
+                    return year >= 1886 && year <= Year.now().getValue(); // Първият автомобил е 1886
+                } catch (NumberFormatException e) {
+                    return false;
+                }
+            }
+        });
         formPanel.add(yearField);
-        
-        formPanel.add(new JLabel("Собственик:"));
+
+        formPanel.add(new JLabel("Собственик*:"));
         ownerCombo = new JComboBox<>();
+        ownerCombo.addItem("Избери"); // Първоначална стойност
         formPanel.add(ownerCombo);
-        
-        // Бутони
-        JPanel buttonPanel = new JPanel();
+
+        // Панел за бутони с отстояние
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
         buttonPanel.add(createButton("Добави", this::addCar));
         buttonPanel.add(createButton("Обнови", this::updateCar));
         buttonPanel.add(createButton("Изтрий", this::deleteCar));
         buttonPanel.add(createButton("Изчисти", e -> clearForm()));
-        
+
         // Таблица
         table = new JTable();
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -58,16 +84,17 @@ public class CarsPanel extends JPanel {
             if (!e.getValueIsAdjusting()) {
                 int row = table.getSelectedRow();
                 if (row >= 0) {
-                    selectedCarId = (Integer) table.getValueAt(row, 0);
-                    regNumberField.setText(table.getValueAt(row, 1).toString());
-                    brandField.setText(table.getValueAt(row, 2).toString());
-                    modelField.setText(table.getValueAt(row, 3).toString());
-                    yearField.setText(table.getValueAt(row, 4).toString());
+                    CustomTableModel model = (CustomTableModel) table.getModel();
+                    selectedCarId = model.getOwnerIdAt(row); // Тук използваме getOwnerIdAt, но всъщност е carId
                     
-                    // Намиране на собственика в комбо бокса
-                    String ownerInfo = table.getValueAt(row, 5).toString();
+                    regNumberField.setText(table.getValueAt(row, 0).toString());
+                    brandField.setText(table.getValueAt(row, 1).toString());
+                    modelField.setText(table.getValueAt(row, 2).toString());
+                    yearField.setText(table.getValueAt(row, 3).toString());
+
+                    String ownerName = table.getValueAt(row, 4).toString();
                     for (int i = 0; i < ownerCombo.getItemCount(); i++) {
-                        if (ownerCombo.getItemAt(i).contains(ownerInfo)) {
+                        if (ownerCombo.getItemAt(i).contains(ownerName)) {
                             ownerCombo.setSelectedIndex(i);
                             break;
                         }
@@ -75,18 +102,100 @@ public class CarsPanel extends JPanel {
                 }
             }
         });
-        
-        add(formPanel, BorderLayout.NORTH);
-        add(buttonPanel, BorderLayout.CENTER);
-        add(new JScrollPane(table), BorderLayout.SOUTH);
+
+        // Централен панел с BoxLayout: вертикално подреждане
+        JPanel centerPanel = new JPanel();
+        centerPanel.setLayout(new BoxLayout(centerPanel, BoxLayout.Y_AXIS));
+        centerPanel.add(formPanel);
+        centerPanel.add(Box.createVerticalStrut(10));
+        centerPanel.add(buttonPanel);
+        centerPanel.add(Box.createVerticalStrut(10));
+
+        add(centerPanel, BorderLayout.NORTH);
+        add(new JScrollPane(table), BorderLayout.CENTER);
     }
-    
+
+    private void loadExistingRegNumbers() {
+        try {
+            String query = "SELECT RegistrationNumber FROM Cars";
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(query);
+            while (rs.next()) {
+                existingRegNumbers.add(rs.getString("RegistrationNumber").toUpperCase());
+            }
+        } catch (SQLException e) {
+            showError("Грешка при зареждане на регистрационните номера", e);
+        }
+    }
+
+    private boolean validateCarData() {
+        // Валидация на регистрационен номер
+        String regNumber = regNumberField.getText().trim();
+        if (regNumber.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Регистрационният номер е задължителен!", 
+                "Грешка", JOptionPane.ERROR_MESSAGE);
+            regNumberField.requestFocus();
+            return false;
+        }
+
+        // Проверка за уникалност на регистрационния номер (само при добавяне)
+        if (selectedCarId == -1 && existingRegNumbers.contains(regNumber.toUpperCase())) {
+            JOptionPane.showMessageDialog(this, "Автомобил с този регистрационен номер вече съществува!", 
+                "Грешка", JOptionPane.ERROR_MESSAGE);
+            regNumberField.requestFocus();
+            return false;
+        }
+
+        // Валидация на марка
+        if (brandField.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Марката е задължителна!", 
+                "Грешка", JOptionPane.ERROR_MESSAGE);
+            brandField.requestFocus();
+            return false;
+        }
+
+        // Валидация на модел
+        if (modelField.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Моделът е задължителен!", 
+                "Грешка", JOptionPane.ERROR_MESSAGE);
+            modelField.requestFocus();
+            return false;
+        }
+
+        // Валидация на година
+        try {
+            int year = Integer.parseInt(yearField.getText().trim());
+            if (year < 1886 || year > Year.now().getValue()) {
+                JOptionPane.showMessageDialog(this, 
+                    String.format("Годината трябва да е между 1886 и %d!", Year.now().getValue()), 
+                    "Грешка", JOptionPane.ERROR_MESSAGE);
+                yearField.requestFocus();
+                return false;
+            }
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Моля, въведете валидна година!", 
+                "Грешка", JOptionPane.ERROR_MESSAGE);
+            yearField.requestFocus();
+            return false;
+        }
+
+        // Валидация на собственик
+        if (ownerCombo.getSelectedIndex() <= 0) { // 0 е "Избери"
+            JOptionPane.showMessageDialog(this, "Моля, изберете собственик!", 
+                "Грешка", JOptionPane.ERROR_MESSAGE);
+            ownerCombo.requestFocus();
+            return false;
+        }
+
+        return true;
+    }
+
     private JButton createButton(String text, java.awt.event.ActionListener action) {
         JButton button = new JButton(text);
         button.addActionListener(action);
         return button;
     }
-    
+
     private void refreshTable() {
         try {
             String query = "SELECT c.CarID, c.RegistrationNumber, c.Brand, c.Model, c.Year, o.Name AS Owner " +
@@ -98,42 +207,68 @@ public class CarsPanel extends JPanel {
             showError("Грешка при зареждане на автомобилите", e);
         }
     }
-    
+
     public void refreshOwnersCombo() {
         ownerCombo.removeAllItems();
+        ownerCombo.addItem("Избери");
+        ownerNameToIdMap.clear();
+        
         try {
             String query = "SELECT OwnerID, Name FROM Owners";
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(query);
             while (rs.next()) {
-                ownerCombo.addItem(rs.getInt("OwnerID") + " - " + rs.getString("Name"));
+                String name = rs.getString("Name");
+                ownerCombo.addItem(name);
+                ownerNameToIdMap.put(name, rs.getInt("OwnerID"));
             }
         } catch (SQLException e) {
             showError("Грешка при зареждане на собствениците", e);
         }
     }
-    
+
     private void addCar(ActionEvent e) {
         try {
+            if (!validateCarData()) {
+                return;
+            }
+
             String query = "INSERT INTO Cars (RegistrationNumber, Brand, Model, Year, OwnerID) VALUES (?, ?, ?, ?, ?)";
             PreparedStatement pstmt = conn.prepareStatement(query);
-            pstmt.setString(1, regNumberField.getText().trim());
+            String regNumber = regNumberField.getText().trim();
+            pstmt.setString(1, regNumber);
             pstmt.setString(2, brandField.getText().trim());
             pstmt.setString(3, modelField.getText().trim());
             pstmt.setInt(4, Integer.parseInt(yearField.getText().trim()));
             
+            // Трябва да намерим ownerId по избраното име
             String selectedOwner = (String) ownerCombo.getSelectedItem();
-            int ownerId = Integer.parseInt(selectedOwner.split(" - ")[0]);
+            int ownerId = getOwnerIdByName(selectedOwner);
             pstmt.setInt(5, ownerId);
             
             pstmt.executeUpdate();
+            existingRegNumbers.add(regNumber.toUpperCase());
             refreshTable();
+            this.repairsPanel.refreshCarCombo();
+            this.reportsPanel.refreshCarCombo();
             clearForm();
         } catch (Exception ex) {
             showError("Грешка при добавяне на автомобил", ex);
         }
     }
-    
+
+    // Помощен метод за намиране на ownerId по име
+    private int getOwnerIdByName(String name) throws SQLException {
+        String query = "SELECT OwnerID FROM Owners WHERE Name = ?";
+        PreparedStatement pstmt = conn.prepareStatement(query);
+        pstmt.setString(1, name);
+        ResultSet rs = pstmt.executeQuery();
+        if (rs.next()) {
+            return rs.getInt("OwnerID");
+        }
+        throw new SQLException("Собственик с име '" + name + "' не е намерен");
+    }
+
     private void updateCar(ActionEvent e) {
         if (selectedCarId == -1) {
             JOptionPane.showMessageDialog(this, "Моля, изберете автомобил за редактиране", 
@@ -142,26 +277,35 @@ public class CarsPanel extends JPanel {
         }
         
         try {
+            if (!validateCarData()) {
+                return;
+            }
+
             String query = "UPDATE Cars SET RegistrationNumber=?, Brand=?, Model=?, Year=?, OwnerID=? WHERE CarID=?";
             PreparedStatement pstmt = conn.prepareStatement(query);
-            pstmt.setString(1, regNumberField.getText().trim());
+            String newRegNumber = regNumberField.getText().trim();
+            pstmt.setString(1, newRegNumber);
             pstmt.setString(2, brandField.getText().trim());
             pstmt.setString(3, modelField.getText().trim());
             pstmt.setInt(4, Integer.parseInt(yearField.getText().trim()));
             
             String selectedOwner = (String) ownerCombo.getSelectedItem();
-            int ownerId = Integer.parseInt(selectedOwner.split(" - ")[0]);
+            int ownerId = ownerNameToIdMap.get(selectedOwner);
             pstmt.setInt(5, ownerId);
             
             pstmt.setInt(6, selectedCarId);
             pstmt.executeUpdate();
+            
+            loadExistingRegNumbers();
             refreshTable();
+            this.repairsPanel.refreshCarCombo();
+            this.reportsPanel.refreshCarCombo();
             clearForm();
         } catch (Exception ex) {
             showError("Грешка при обновяване на автомобил", ex);
         }
     }
-    
+
     private void deleteCar(ActionEvent e) {
         if (selectedCarId == -1) {
             JOptionPane.showMessageDialog(this, "Моля, изберете автомобил за изтриване", 
@@ -175,29 +319,44 @@ public class CarsPanel extends JPanel {
         
         if (confirm == JOptionPane.YES_OPTION) {
             try {
-                String query = "DELETE FROM Cars WHERE CarID=?";
-                PreparedStatement pstmt = conn.prepareStatement(query);
-                pstmt.setInt(1, selectedCarId);
-                pstmt.executeUpdate();
+                // Вземане на регистрационния номер преди изтриване
+                String regNumber = "";
+                String selectQuery = "SELECT RegistrationNumber FROM Cars WHERE CarID=?";
+                PreparedStatement selectStmt = conn.prepareStatement(selectQuery);
+                selectStmt.setInt(1, selectedCarId);
+                ResultSet rs = selectStmt.executeQuery();
+                if (rs.next()) {
+                    regNumber = rs.getString("RegistrationNumber");
+                }
+                
+                // Изтриване на автомобила
+                String deleteQuery = "DELETE FROM Cars WHERE CarID=?";
+                PreparedStatement deleteStmt = conn.prepareStatement(deleteQuery);
+                deleteStmt.setInt(1, selectedCarId);
+                deleteStmt.executeUpdate();
+                
+                // Премахване от кеша
+                existingRegNumbers.remove(regNumber.toUpperCase());
+                
                 refreshTable();
+                this.repairsPanel.refreshCarCombo();
+                this.reportsPanel.refreshCarCombo();
                 clearForm();
             } catch (SQLException ex) {
                 showError("Грешка при изтриване на автомобил", ex);
             }
         }
     }
-    
+
     private void clearForm() {
         regNumberField.setText("");
         brandField.setText("");
         modelField.setText("");
         yearField.setText("");
-        if (ownerCombo.getItemCount() > 0) {
-            ownerCombo.setSelectedIndex(0);
-        }
+        ownerCombo.setSelectedIndex(0); // Връщане към "Избери"
         selectedCarId = -1;
     }
-    
+
     private void showError(String message, Exception e) {
         JOptionPane.showMessageDialog(this, 
             message + ": " + e.getMessage(), 
