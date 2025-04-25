@@ -43,7 +43,7 @@ public class ReportsPanel extends JPanel {
         
         criteriaPanel.add(new JLabel("Автомобил:"));
         carCombo = new JComboBox<>();
-        carCombo.addItem("Всички"); // Базова стойност
+        carCombo.addItem("Всички");
         criteriaPanel.add(carCombo);
         
         criteriaPanel.add(new JLabel("От дата (гггг-мм-дд):"));
@@ -80,7 +80,7 @@ public class ReportsPanel extends JPanel {
     
     public void refreshOwnerCombo() {
         ownerCombo.removeAllItems();
-        ownerCombo.addItem("Всички"); // Базова стойност
+        ownerCombo.addItem("Всички");
         ownerNameToIdMap.clear();
         
         try {
@@ -99,8 +99,7 @@ public class ReportsPanel extends JPanel {
     
     public void refreshCarCombo() {
         carCombo.removeAllItems();
-        carCombo.addItem("Всички"); // Базова стойност
-        carInfoToIdMap.clear();
+        carCombo.addItem("Всички");
         
         try {
             String query = "SELECT CarID, Brand, Model, RegistrationNumber FROM Cars ORDER BY Brand, Model";

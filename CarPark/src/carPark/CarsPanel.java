@@ -54,10 +54,10 @@ public class CarsPanel extends JPanel {
             @Override
             public boolean verify(JComponent input) {
                 String text = ((JTextField) input).getText();
-                if (text.isEmpty()) return true; // ще се валидира при submit
+                if (text.isEmpty()) return true; 
                 try {
                     int year = Integer.parseInt(text);
-                    return year >= 1886 && year <= Year.now().getValue(); // Първият автомобил е 1886
+                    return year >= 1886 && year <= Year.now().getValue(); 
                 } catch (NumberFormatException e) {
                     return false;
                 }
@@ -67,7 +67,7 @@ public class CarsPanel extends JPanel {
 
         formPanel.add(new JLabel("Собственик*:"));
         ownerCombo = new JComboBox<>();
-        ownerCombo.addItem("Избери"); // Първоначална стойност
+        ownerCombo.addItem("Избери"); 
         formPanel.add(ownerCombo);
 
         // Панел за бутони с отстояние
@@ -85,7 +85,7 @@ public class CarsPanel extends JPanel {
                 int row = table.getSelectedRow();
                 if (row >= 0) {
                     CustomTableModel model = (CustomTableModel) table.getModel();
-                    selectedCarId = model.getOwnerIdAt(row); // Тук използваме getOwnerIdAt, но всъщност е carId
+                    selectedCarId = model.getOwnerIdAt(row);
                     
                     regNumberField.setText(table.getValueAt(row, 0).toString());
                     brandField.setText(table.getValueAt(row, 1).toString());
@@ -353,7 +353,7 @@ public class CarsPanel extends JPanel {
         brandField.setText("");
         modelField.setText("");
         yearField.setText("");
-        ownerCombo.setSelectedIndex(0); // Връщане към "Избери"
+        ownerCombo.setSelectedIndex(0); 
         selectedCarId = -1;
     }
 

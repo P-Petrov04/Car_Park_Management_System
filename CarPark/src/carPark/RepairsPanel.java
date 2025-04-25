@@ -46,7 +46,7 @@ public class RepairsPanel extends JPanel {
         formPanel.add(new JLabel("Автомобил*:"), gbc);
         gbc.gridx = 1;
         carCombo = new JComboBox<>();
-        carCombo.addItem("Избери"); // Базова стойност
+        carCombo.addItem("Избери"); 
         formPanel.add(carCombo, gbc);
 
         // Ред 2 - Описание
@@ -65,7 +65,7 @@ public class RepairsPanel extends JPanel {
             @Override
             public boolean verify(JComponent input) {
                 String text = ((JTextField) input).getText();
-                if (text.isEmpty()) return true; // ще се валидира при submit
+                if (text.isEmpty()) return true; 
                 try {
                     new BigDecimal(text);
                     return true;
@@ -85,7 +85,7 @@ public class RepairsPanel extends JPanel {
             @Override
             public boolean verify(JComponent input) {
                 String text = ((JTextField) input).getText();
-                if (text.isEmpty()) return true; // ще се валидира при submit
+                if (text.isEmpty()) return true; 
                 try {
                     LocalDate date = LocalDate.parse(text);
                     return !date.isAfter(LocalDate.now());
@@ -112,7 +112,7 @@ public class RepairsPanel extends JPanel {
         table.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting() && table.getSelectedRow() >= 0) {
                 CustomTableModel model = (CustomTableModel) table.getModel();
-                selectedRepairId = model.getOwnerIdAt(table.getSelectedRow()); // Взимаме repairId от скритата колона
+                selectedRepairId = model.getOwnerIdAt(table.getSelectedRow());
                 
                 descriptionArea.setText(table.getValueAt(table.getSelectedRow(), 1).toString());
                 costField.setText(table.getValueAt(table.getSelectedRow(), 2).toString());
@@ -130,7 +130,7 @@ public class RepairsPanel extends JPanel {
 
     private boolean validateRepairData() {
         // Валидация на автомобил
-        if (carCombo.getSelectedIndex() <= 0) { // 0 е "Избери"
+        if (carCombo.getSelectedIndex() <= 0) { 
             JOptionPane.showMessageDialog(this, "Моля, изберете автомобил!", 
                 "Грешка", JOptionPane.ERROR_MESSAGE);
             carCombo.requestFocus();
@@ -208,7 +208,7 @@ public class RepairsPanel extends JPanel {
     
     public void refreshCarCombo() {
         carCombo.removeAllItems();
-        carCombo.addItem("Избери"); // Базова стойност
+        carCombo.addItem("Избери"); 
         try {
             String query = "SELECT CarID, Brand, Model, RegistrationNumber FROM Cars ORDER BY Brand, Model";
             Statement stmt = conn.createStatement();
@@ -312,7 +312,7 @@ public class RepairsPanel extends JPanel {
         costField.setText("");
         dateField.setText(new SimpleDateFormat("yyyy-MM-dd").format(new Date()));
         if (carCombo.getItemCount() > 0) {
-            carCombo.setSelectedIndex(0); // Връщане към "Избери"
+            carCombo.setSelectedIndex(0); 
         }
         selectedRepairId = -1;
     }

@@ -163,7 +163,7 @@ public class OwnersPanel extends JPanel {
         }
         
         if (!hasCondition) {
-            return false; // Няма какво да проверяваме
+            return false; 
         }
         
         query.append(")");

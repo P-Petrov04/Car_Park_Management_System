@@ -13,23 +13,22 @@ public class CustomTableModel extends AbstractTableModel {
 
     public CustomTableModel(ResultSet rs) throws Exception {
         this.data = new ArrayList<>();
-        this.ownerIds = new ArrayList<>();  // Инициализираме списъка за ID-та
+        this.ownerIds = new ArrayList<>();
         ResultSetMetaData metaData = rs.getMetaData();
         int columnCount = metaData.getColumnCount();
 
         // Заглавия на колони (без ID)
         columnNames = new String[columnCount - 1];  
-        for (int i = 2; i <= columnCount; i++) {  // Започваме от 2, за да пропуснем първата колона (ID)
+        for (int i = 2; i <= columnCount; i++) {  
             columnNames[i - 2] = metaData.getColumnLabel(i);
         }
 
         // Данни
         while (rs.next()) {
-            // Запазваме ID-то в отделен списък
             ownerIds.add(rs.getInt(1));
             
-            Object[] row = new Object[columnCount - 1];  // Намаляваме броя на колоните с 1
-            for (int i = 2; i <= columnCount; i++) {  // Започваме от 2, за да пропуснем първата колона (ID)
+            Object[] row = new Object[columnCount - 1];  
+            for (int i = 2; i <= columnCount; i++) {  
                 row[i - 2] = rs.getObject(i);
             }
             data.add(row);
@@ -58,6 +57,6 @@ public class CustomTableModel extends AbstractTableModel {
 
     // Метод за получаване на ID на собственика от таблицата
     public int getOwnerIdAt(int rowIndex) {
-        return ownerIds.get(rowIndex);  // Връщаме ID от списъка
+        return ownerIds.get(rowIndex); 
     }
 }
